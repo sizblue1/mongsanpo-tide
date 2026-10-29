@@ -17,7 +17,7 @@ jobs:
           DAYS: "60"
         run: |
           python3 - <<'PY'
-          import os, re, json, urllib.request, urllib.parse, datetime as dt
+          import os, re, json, time, urllib.request, urllib.parse, urllib.error, datetime as dt
           key = urllib.parse.unquote(os.environ["KHOA_KEY"].strip())
           base = "https://apis.data.go.kr/1192136/tideFcstHghLw/GetTideFcstHghLwApiService"
           kst = dt.timezone(dt.timedelta(hours=9))
@@ -25,7 +25,17 @@ jobs:
           def call(code, day):
               q = urllib.parse.urlencode({"serviceKey": key, "obsCode": code, "reqDate": day.strftime("%Y%m%d"),
                                           "type": "json", "pageNo": 1, "numOfRows": 100})
-              raw = urllib.request.urlopen(base + "?" + q, timeout=30).read().decode("utf-8")
+              for n in range(5):
+                  try:
+                      time.sleep(1)
+                      raw = urllib.request.urlopen(base + "?" + q, timeout=30).read().decode("utf-8")
+                      break
+                  except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError) as e:
+                      print(day, "재시도", n + 1, e)
+                      time.sleep(5 * (n + 1))
+              else:
+                  print(day, "건너뜀")
+                  return []
               try:
                   j = json.loads(raw)
               except ValueError:
