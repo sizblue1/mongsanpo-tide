@@ -68,29 +68,34 @@ jobs:
                   ev[t] = (high, None if lvl in (None, "") else round(float(lvl)))
           if len(ev) < 20: raise SystemExit(f"데이터가 너무 적습니다: {len(ev)}건")
           stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-          L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//sizblue1//mongsanpo-tide//KO", "CALSCALE:GREGORIAN",
-               "METHOD:PUBLISH", "X-WR-CALNAME:몽산포 물때", "X-WR-TIMEZONE:Asia/Seoul",
-               "REFRESH-INTERVAL;VALUE=DURATION:PT12H", "X-PUBLISHED-TTL:PT12H",
-               "BEGIN:VTIMEZONE", "TZID:Asia/Seoul", "BEGIN:STANDARD", "DTSTART:19700101T000000",
-               "TZOFFSETFROM:+0900", "TZOFFSETTO:+0900", "TZNAME:KST", "END:STANDARD", "END:VTIMEZONE"]
           f = lambda t: t.strftime("%Y%m%dT%H%M%S")
-          for t in sorted(ev):
-              high, lvl = ev[t]
-              nm = "만조" if high else "간조"
-              cm = f" {lvl}cm" if lvl is not None else ""
-              L += ["BEGIN:VEVENT", f"UID:{'H' if high else 'L'}-{t:%Y%m%d%H%M}@mongsanpo-tide", f"DTSTAMP:{stamp}",
-                    f"DTSTART;TZID=Asia/Seoul:{f(t)}", f"DTEND;TZID=Asia/Seoul:{f(t + dt.timedelta(minutes=30))}",
-                    f"SUMMARY:{'▲' if high else '▼'}{nm}{cm}",
-                    f"DESCRIPTION:{name} 관측소 예보 (국립해양조사원)",
-                    "LOCATION:몽산포해수욕장", "TRANSP:TRANSPARENT", "END:VEVENT"]
-          L.append("END:VCALENDAR")
-          open("tide.ics", "w", encoding="utf-8", newline="").write("\r\n".join(L) + "\r\n")
+          def write(path, calname, want):
+              L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//sizblue1//mongsanpo-tide//KO", "CALSCALE:GREGORIAN",
+                   "METHOD:PUBLISH", f"X-WR-CALNAME:{calname}", "X-WR-TIMEZONE:Asia/Seoul",
+                   "REFRESH-INTERVAL;VALUE=DURATION:PT12H", "X-PUBLISHED-TTL:PT12H",
+                   "BEGIN:VTIMEZONE", "TZID:Asia/Seoul", "BEGIN:STANDARD", "DTSTART:19700101T000000",
+                   "TZOFFSETFROM:+0900", "TZOFFSETTO:+0900", "TZNAME:KST", "END:STANDARD", "END:VTIMEZONE"]
+              for t in sorted(ev):
+                  high, lvl = ev[t]
+                  if high not in want: continue
+                  nm = "만조" if high else "간조"
+                  cm = f" {lvl}cm" if lvl is not None else ""
+                  L += ["BEGIN:VEVENT", f"UID:{'H' if high else 'L'}-{t:%Y%m%d%H%M}@mongsanpo-tide", f"DTSTAMP:{stamp}",
+                        f"DTSTART;TZID=Asia/Seoul:{f(t)}", f"DTEND;TZID=Asia/Seoul:{f(t + dt.timedelta(minutes=30))}",
+                        f"SUMMARY:{'▲' if high else '▼'}{nm}{cm}",
+                        f"DESCRIPTION:{name} 관측소 예보 (국립해양조사원)",
+                        "LOCATION:몽산포해수욕장", "TRANSP:TRANSPARENT", "END:VEVENT"]
+              L.append("END:VCALENDAR")
+              open(path, "w", encoding="utf-8", newline="").write("\r\n".join(L) + "\r\n")
+          write("tide.ics", "몽산포 물때", (True, False))
+          write("tide_high.ics", "몽산포 만조", (True,))
+          write("tide_low.ics", "몽산포 간조", (False,))
           print("완료:", len(ev), "건,", min(ev), "~", max(ev))
           PY
       - name: 저장
         run: |
           git config user.name "github-actions"
           git config user.email "actions@users.noreply.github.com"
-          git add tide.ics
+          git add tide.ics tide_high.ics tide_low.ics
           git diff --cached --quiet || git commit -m "물때 갱신 $(date -u +%F)"
           git push
