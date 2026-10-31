@@ -11,6 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: 물때 받아서 tide.ics 만들기
+        continue-on-error: true
+        timeout-minutes: 20
         env:
           KHOA_KEY: ${{ secrets.KHOA_KEY }}
           OBS_CODES: "DT_0067,DT_0050,DT_0025"
